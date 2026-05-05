@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dhot-Fit Visualizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .card { border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); padding: 1.5rem; }
+    .ref-card { border: 2px solid transparent; cursor: pointer; transition: all 0.2s; position: relative; }
+    .ref-card.selected { border-color: #3b82f6; }
+    .ref-card.selected::after { content: '✅'; position: absolute; top: 0.5rem; right: 0.5rem; font-size: 1.2rem; }
+    .shimmer {
+      background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    .dark .shimmer {
+      background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  </style>
+</head>
+<body class="text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-900 transition-colors duration-200 h-screen flex flex-col">
+  <!-- Header -->
+  <header class="bg-white dark:bg-gray-800 shadow-sm py-4 px-6 flex justify-between items-center z-10 transition-colors duration-200">
+    <div class="flex items-center gap-3">
+      <div class="text-2xl">🎨</div>
+      <h1 class="text-xl font-bold text-gray-900 dark:text-white">Dhot-Fit Visualizer</h1>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+      <span id="quotaInfo" class="text-gray-600 dark:text-gray-400 font-medium hidden md:inline">Hari ini: 0× generate</span>
+      <div id="keyStatusBadge" class="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded-full font-medium">
+        <span class="w-2 h-2 rounded-full bg-blue-500"></span> Provider: Gemini (AI Studio)
+      </div>
+      <button id="themeToggleBtn" class="p-2 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition" title="Toggle Mode Gelap/Terang">
+        <span id="themeIcon">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 overflow-hidden flex flex-col md:flex-row p-4 gap-4 max-w-7xl mx-auto w-full">
+    
+    <!-- LEFT PANEL (Inputs) -->
+    <div class="w-full md:w-5/12 lg:w-4/12 flex flex-col gap-4 overflow-y-auto pr-2 pb-10 custom-scrollbar">
+      
+      <!-- APP MODE -->
+      <div class="card bg-white dark:bg-gray-800 flex flex-col gap-3 transition-colors duration-200">
+        <h2 class="font-semibold text-lg flex items-center gap-2 text-gray-900 dark:text-white">🛠️ Mode Aplikasi</h2>
+        <select id="appModeSelect" class="w-full bg-[#1E293B] border border-[#334155] rounded-lg px-4 py-3 text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] cursor-pointer">
+          <option value="standard">Mode Standar (Karakter Dhot Utuh)</option>
+          <option value="animator">Mode Animator (Auto-Cut Aset 2D Rig)</option>
+        </select>
+        <label id="combinedCheckboxContainer" class="flex items-center gap-2 mt-1 hidden text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+          <input type="checkbox" id="generateCombinedCheckbox" checked class="rounded border-gray-400 w-4 h-4 cursor-pointer text-blue-600 focus:ring-blue-500"> 
+          Tampilkan juga versi gabungan utuh
+        </label>
+      </div>
+
+      <!-- API Key & Model Setup -->
+      <div class="card bg-white dark:bg-gray-800 flex flex-col gap-3 transition-colors duration-200">
+        <h2 class="font-semibold text-lg flex items-center gap-2 text-gray-900 dark:text-white">🔑 Pengaturan API</h2>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+          <select id="providerSelect" class="w-full bg-[#1E293B] border border-[#334155] rounded-lg px-4 py-3 text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer">
+            <option value="gemini">Google AI Studio (Gemini)</option>
+            <option value="hf">Hugging Face Inference API</option>
+          </select>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Fitur lama tetap ada. Kamu bisa pilih provider sesuai kebutuhan.</p>
+        </div>
+
+        <div id="geminiSettings" class="flex flex-col gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key Gemini (AI Studio)</label>
+            <div class="flex gap-2">
+              <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="flex-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200">
+              <button id="saveKeyBtn" class="bg-gray-800 dark:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-500 transition">Simpan</button>
+            </div>
+            <div class="flex justify-between items-center mt-1">
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Dapatkan Key (Gratis) &rarr;</a>
+              <button id="resetKeyBtn" class="text-xs text-red-600 dark:text-red-400 hover:underline hidden">Ganti Key</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pilih Model Gemini</label>
+            <select id="modelSelect" class="w-full bg-[#1E293B] border border-[#334155] rounded-lg px-4 py-3 text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer">
+              <option value="gemini-3.1-flash-image-preview">Nano Banana 2 (gemini-3.1-flash-image-preview)</option>
+              <option value="gemini-2.5-flash-image">Nano Banana (gemini-2.5-flash-image)</option>
+              <option value="gemini-3-pro-image-preview">Nano Banana Pro (gemini-3-pro-image-preview)</option>
+            </select>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Gunakan Nano Banana 2 untuk performa terbaik di Free Tier.</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preset Hasil (Gemini)</label>
+            <select id="geminiPresetSelect" class="w-full bg-[#1E293B] border border-[#334155] rounded-lg px-4 py-2 text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer">
+              <option value="custom">Custom (manual)</option>
+              <option value="consistent">Konsisten (lebih nempel referensi)</option>
+              <option value="balanced">Seimbang</option>
+              <option value="creative">Kreatif (lebih variasi)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature (Gemini)</label>
+            <div class="flex items-center gap-3">
+              <input id="geminiTempInput" type="range" min="0" max="1.5" step="0.05" class="w-full">
+              <span id="geminiTempValue" class="text-xs text-gray-600 dark:text-gray-300 w-10 text-right">0.70</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Semakin rendah = lebih konsisten ke referensi.</p>
+          </div>
+        </div>
+
+        <div id="hfSettings" class="hidden flex flex-col gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hugging Face Access Token</label>
+            <div class="flex gap-2">
+              <input type="password" id="hfKeyInput" placeholder="hf_..." class="flex-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200">
+              <button id="hfSaveKeyBtn" class="bg-gray-800 dark:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-500 transition">Simpan</button>
+            </div>
+            <div class="flex justify-between items-center mt-1">
+              <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Buat Token (Gratis) &rarr;</a>
+              <button id="hfResetKeyBtn" class="text-xs text-red-600 dark:text-red-400 hover:underline hidden">Ganti Token</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pilih Model Hugging Face</label>
+            <select id="hfModelSelect" class="w-full bg-[#1E293B] border border-[#334155] rounded-lg px-4 py-3 text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer">
+              <option value="stabilityai/sdxl-turbo">SDXL Turbo (cepat, cukup konsisten)</option>
+              <option value="stabilityai/stable-diffusion-xl-base-1.0">SDXL Base 1.0 (detail bagus, lebih lambat)</option>
+              <option value="runwayml/stable-diffusion-v1-5">SD 1.5 (ringan, kadang kurang detail)</option>
+              <option value="__custom__">Custom (isi sendiri)</option>
+            </select>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Gunakan model yang support image-to-image. Kalau error, coba model lain.</p>
+            <p id="hfModelSupportInfo" class="text-xs text-gray-500 dark:text-gray-400 mt-1">Support image-to-image: cek model.</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preset Hasil (Hugging Face)</label>
+            <select id="hfPresetSelect" class="w-full bg-[#1E293B] border border-[#334155] rounded-lg px-4 py-2 text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer">
+              <option value="custom">Custom (manual)</option>
+              <option value="consistent">Konsisten (lebih nempel referensi)</option>
+              <option value="balanced">Seimbang</option>
+              <option value="creative">Kreatif (lebih variasi)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Strength (Hugging Face)</label>
+            <div class="flex items-center gap-3">
+              <input id="hfStrengthInput" type="range" min="0.05" max="0.8" step="0.05" class="w-full">
+              <span id="hfStrengthValue" class="text-xs text-gray-600 dark:text-gray-300 w-10 text-right">0.35</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Semakin kecil = makin nempel ke gambar referensi.</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Guidance (Hugging Face)</label>
+            <div class="flex items-center gap-3">
+              <input id="hfGuidanceInput" type="range" min="1" max="12" step="0.5" class="w-full">
+              <span id="hfGuidanceValue" class="text-xs text-gray-600 dark:text-gray-300 w-10 text-right">7.0</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Semakin besar = prompt lebih kuat, tapi bisa lepas dari referensi.</p>
+          </div>
+
+          <div id="hfCustomModelWrap" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model ID Custom</label>
+            <input type="text" id="hfCustomModelInput" placeholder="contoh: stabilityai/stable-diffusion-xl-base-1.0" class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tambah Model ke Daftar</label>
+            <div class="flex gap-2">
+              <input type="text" id="hfAddModelInput" placeholder="contoh: stabilityai/sdxl-turbo" class="flex-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200">
+              <button id="hfAddModelBtn" class="bg-gray-800 dark:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-500 transition">Tambah</button>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Model yang ditambahkan akan tersimpan di browser ini.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reference Selection -->
+      <div class="card bg-white dark:bg-gray-800 flex flex-col gap-3 transition-colors duration-200">
+        <h2 class="font-semibold text-lg flex items-center gap-2 text-gray-900 dark:text-white">🖼️ Gambar Patokan</h2>
+        
+        <!-- Standard Refs -->
+        <div id="standardRefs" class="grid grid-cols-2 gap-3">
+          <div class="border-2 rounded-xl p-2 cursor-pointer transition flex flex-col items-center bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500" id="refCardA">
+            <img src="data:image/jpeg;base64,__KOKO_BASE64__" alt="Ref A" class="h-32 object-contain rounded-md drop-shadow-md">
+            <span class="text-xs font-semibold mt-2 text-gray-700 dark:text-gray-300">Gaya A (Casual)</span>
+          </div>
+          <div class="border-2 rounded-xl p-2 cursor-pointer transition flex flex-col items-center bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500" id="refCardB">
+            <img src="data:image/jpeg;base64,__OLAHRAGA_BASE64__" alt="Ref B" class="h-32 object-contain rounded-md drop-shadow-md">
+            <span class="text-xs font-semibold mt-2 text-gray-700 dark:text-gray-300">Gaya B (Sporty)</span>
+          </div>
+        </div>
+
+        <!-- Animator Ref -->
+        <div id="animatorRef" class="hidden">
+          <div class="border-2 rounded-xl p-2 flex flex-col items-center bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500">
+            <img src="data:image/png;base64,__SATPAM_EXPLODED_BASE64__" alt="Satpam Dummy" class="h-40 object-contain rounded-md drop-shadow-md">
+            <span class="text-xs font-semibold mt-2 text-blue-700 dark:text-blue-400">Template 2D Rig Dummy (Tanpa Wajah)</span>
+            <p class="text-[10px] text-center text-gray-500 dark:text-gray-400 mt-1">AI akan memotong hasil gambar sesuai 6 template skin secara otomatis.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Baju -->
+      <div class="card bg-white dark:bg-gray-800 flex flex-col gap-4 transition-colors duration-200">
+        <h2 class="font-semibold text-lg flex items-center gap-2 text-gray-900 dark:text-white">👕 Desain Baju Baru</h2>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pilih Template Referensi Cepat</label>
+          <select id="templateSelect" class="w-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 text-gray-600 dark:text-gray-300">
+            <option value="">-- Pilih dari 38 Template --</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Baju <span class="text-red-500">*</span></label>
+          <input type="text" id="outfitName" maxlength="80" placeholder="contoh: Jas Hitam Agen Rahasia" class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Deskripsi Detail <span class="text-red-500">*</span></label>
+          <textarea id="outfitDesc" rows="4" maxlength="500" placeholder="contoh: Setelan jas hitam rapi ala Men In Black, dasi tipis hitam, kacamata hitam persegi..." class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-colors duration-200"></textarea>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Tips: Tulis warna, bahan, aksesoris, & kondisi baju secara spesifik.</p>
+        </div>
+
+        <button id="generateBtn" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+          <span>🎨 Generate Gambar</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL (Canvas) -->
+    <div class="w-full md:w-7/12 lg:w-8/12 flex flex-col gap-4 h-full">
+      <div class="card bg-white dark:bg-gray-800 flex-1 flex flex-col relative overflow-hidden h-[60vh] md:h-auto transition-colors duration-200">
+        
+        <!-- Actions Toolbar -->
+        <div id="resultActions" class="absolute top-4 right-4 z-20 flex gap-2 hidden">
+          <button id="resetFormBtn" class="bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm flex items-center gap-1 backdrop-blur-sm transition">
+            ✖ Reset Form
+          </button>
+          <button id="regenerateBtn" class="bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm flex items-center gap-1 backdrop-blur-sm transition">
+            🔄 Ulangi
+          </button>
+          <button id="downloadBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium shadow-sm flex items-center gap-1 transition">
+            ⬇ Download PNG
+          </button>
+        </div>
+
+        <!-- Canvas Area -->
+        <div id="canvasArea" class="flex-1 w-full bg-gray-100 dark:bg-gray-900/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center overflow-hidden relative transition-colors duration-200">
+          
+          <!-- State: Kosong -->
+          <div id="stateEmpty" class="text-center text-gray-400 dark:text-gray-500 p-6">
+            <div class="text-6xl mb-4 opacity-50">🖼️</div>
+            <p class="font-medium text-lg">Hasil generate akan muncul di sini</p>
+            <p class="text-sm mt-2">Pilih referensi, tulis deskripsi, lalu klik Generate.</p>
+          </div>
+
+          <!-- State: Loading -->
+          <div id="stateLoading" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-800 z-10 transition-colors duration-200">
+            <div class="w-64 h-80 rounded-lg shimmer mb-6 shadow-inner border border-gray-100 dark:border-gray-700"></div>
+            <div class="animate-pulse flex flex-col items-center">
+              <div class="text-xl font-medium text-blue-600 dark:text-blue-400 mb-2">Sedang menggambar Dhot...</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">Mohon tunggu sekitar 15–45 detik.</div>
+            </div>
+          </div>
+
+          <!-- State: Error -->
+          <div id="stateError" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-800 z-10 p-6 text-center transition-colors duration-200">
+            <div class="text-5xl mb-4 text-red-500">⚠️</div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-2">Terjadi Kesalahan</h3>
+            <p id="errorMsg" class="text-gray-600 dark:text-gray-300 mb-6 max-w-md">Pesan error akan muncul di sini.</p>
+            <button id="errorRetryBtn" class="bg-gray-800 dark:bg-gray-600 text-white px-4 py-2 rounded-md font-medium hover:bg-gray-700 dark:hover:bg-gray-500">Coba Lagi</button>
+          </div>
+
+          <!-- State: Result -->
+          <!-- Background checkerboard made compatible via CSS/Inline Style -->
+          <div id="resultImageWrapper" class="hidden w-full h-full relative" style="background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZvAXg2GQAQj8J0L/ERyFhAyABxkZGBkYGIyA0QCMQgAA+5AD19+BwUoAAAAASUVORK5CYII=');">
+             <img id="resultImage" class="w-full h-full object-contain absolute inset-0" src="" alt="Hasil Generate">
+          </div>
+          <!-- Animator Results Wrapper -->
+          <div id="animatorResultsWrapper" class="hidden mt-6 w-full max-w-lg mx-auto">
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">✂️ Aset Terpotong (Auto-Cut)</h3>
+            <div id="animatorResultsGrid" class="grid grid-cols-3 gap-3">
+              <!-- Cards injected by JS -->
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- Constants ---
+    const DHOT_REFERENCES = {
+      REF_A: { label: "Dhot — Gaya Santai", base64: "__KOKO_BASE64__" },
+      REF_B: { label: "Dhot — Gaya Sporty", base64: "__OLAHRAGA_BASE64__" }
+    };
+
+    const OUTFIT_TEMPLATES = [
+      { name: "Seragam Putih Abu-abu", desc: "Baju seragam SMA putih lengan panjang dengan celana abu-abu. Bajunya dikeluarkan dan agak lecek, dasi dipakai setengah hati." },
+      { name: "Seragam Pramuka", desc: "Lengkap dengan kacu dan topi baret yang miring" },
+      { name: "Baju Olahraga Sekolah", desc: "Kaos training khas sekolah negeri" },
+      { name: "Baju Batik Sekolah", desc: "Motif batik sekolah yang warnanya sudah agak pudar" },
+      { name: "Baju Koko & Sarung", desc: "Baju koko putih bersih dengan sarung kotak-kotak. Gaya anak gaul mau tarawih, sarungnya agak melorot ke bawah seperti sering lari." },
+      { name: "Piyama Doraemon", desc: "Baju tidur andalan dengan motif doraemon" },
+      { name: "Kaos Partai", desc: "Kaos kebesaran hasil nyolong dari lemari bapaknya" },
+      { name: "Jaket Angkatan", desc: "Jaket kelas dengan desain norak khas anak SMA" },
+      { name: "Jas Bos Besar (CEO)", desc: "Impian jadi orang kaya, jas rapi dengan kacamata hitam" },
+      { name: "Jas Dokter", desc: "Jas putih panjang dengan stetoskop mainan" },
+      { name: "Seragam Polisi", desc: "Baju abdi negara warna coklat kepolisian" },
+      { name: "Seragam Pilot", desc: "Baju putih, epaulet di bahu, kacamata aviator" },
+      { name: "Wearpack Pembalap", desc: "Baju balap tertutup penuh sponsor pelesetan" },
+      { name: "Jaket Ojol", desc: "Jaket hijau andalan pencari cuan instan" },
+      { name: "Kemeja PNS", desc: "Baju dinas pemda warna khaki" },
+      { name: "Baju Masterchef", desc: "Celemek putih dan topi koki tinggi" },
+      { name: "Baju Astronot", desc: "Setelan luar angkasa putih tebal" },
+      { name: "Setelan YouTuber Gaming", desc: "Kaos merchandise, jaket esports, headset RGB" },
+      { name: "Seragam Satpam", desc: "Seragam putih biru satpam yang sangat kebesaran" },
+      { name: "Baju Hansip / Linmas", desc: "Baju hijau khas petugas ronda kampung" },
+      { name: "Rompi Tukang Parkir", desc: "Rompi oranye terang dengan peluit di leher" },
+      { name: "Baju Tukang Bangunan", desc: "Kaos oblong lusuh dengan handuk kecil di leher" },
+      { name: "Celemek Kang Gorengan", desc: "Kaos dan celemek noda minyak, bawa capitan" },
+      { name: "Baju Montir Bengkel", desc: "Coverall biru tua yang penuh noda oli" },
+      { name: "Kostum Badut Sulap", desc: "Baju polkadot warna-warni kebesaran, kancing besar, celana balon, hidung tomat merah, dan topi tinggi. Semuanya sedikit too much." },
+      { name: "Baju Kang Bakso", desc: "Kaos partai ditumpuk kemeja kotak-kotak pudar" },
+      { name: "Seragam SPBU", desc: "Baju merah khas petugas pom bensin" },
+      { name: "Pakaian Pencak Silat", desc: "Baju hitam-hitam pesilat lokal dengan sabuk kain" },
+      { name: "Tracksuit Kuning", desc: "Parodi baju ikonik Bruce Lee warna kuning" },
+      { name: "Super-Dhot", desc: "Parodi Superman versi low budget, sempak merah di luar" },
+      { name: "Baju Detektif", desc: "Topi fedora, mantel panjang, kaca pembesar" },
+      { name: "Jubah Hitam Hacker", desc: "Jaket hoodie hitam ala Mr. Robot" },
+      { name: "Baju Pemburu Hantu", desc: "Jumpsuit cokelat ala Ghostbusters + vacuum cleaner" },
+      { name: "Kaos Garis Pencuri", desc: "Baju loreng hitam-putih khas maling komik lama" },
+      { name: "Jas Hitam Agen Rahasia", desc: "Setelan jas hitam rapi ala Men In Black, dasi tipis hitam, kacamata hitam persegi, pin agen di kerah." },
+      { name: "Baju Ninja Desa Konaha", desc: "Parodi jaket oranye khas Naruto" },
+      { name: "Pendekar Rambut Putih", desc: "Baju serba putih, ikat kepala, parodi Wiro Sableng" },
+      { name: "Baju Petinju", desc: "Celana kolor satin dan sarung tinju besar" }
+    ];
+
+    // --- State & Config ---
+    const MAX_DAILY_QUOTA = 50; 
+    let apiProvider = localStorage.getItem("dhot_api_provider") || "gemini";
+    let geminiApiKey = localStorage.getItem("dhot_api_key") || "";
+    let hfApiKey = localStorage.getItem("dhot_hf_key") || "";
+    let geminiTemperature = parseFloat(localStorage.getItem("dhot_gemini_temperature") || "0.7");
+    let hfStrength = parseFloat(localStorage.getItem("dhot_hf_strength") || "0.35");
+    let hfGuidance = parseFloat(localStorage.getItem("dhot_hf_guidance") || "7");
+    let geminiPreset = localStorage.getItem("dhot_gemini_preset") || "balanced";
+    let hfPreset = localStorage.getItem("dhot_hf_preset") || "balanced";
+    let selectedRef = localStorage.getItem("dhot_last_ref") || "REF_A";
+    let isGenerating = false;
+    let currentResultDataUrl = null;
+
+    const SKIN_TEMPLATES = [
+      { id: "BADAN", name: "Badan", src: "data:image/png;base64,__SKIN_BADAN__", x: 0, y: 0 },
+      { id: "KAKI_KANAN", name: "Kaki Kanan", src: "data:image/png;base64,__SKIN_KAKI_KANAN__", x: 0, y: 0 },
+      { id: "KAKI_KIRI", name: "Kaki Kiri", src: "data:image/png;base64,__SKIN_KAKI_KIRI__", x: 0, y: 0 },
+      { id: "PINGGUL", name: "Pinggul", src: "data:image/png;base64,__SKIN_PINGGUL__", x: 0, y: 0 },
+      { id: "TANGAN_KANAN", name: "Tangan Kanan", src: "data:image/png;base64,__SKIN_TANGAN_KANAN__", x: 0, y: 0 },
+      { id: "TANGAN_KIRI", name: "Tangan Kiri", src: "data:image/png;base64,__SKIN_TANGAN_KIRI__", x: 0, y: 0 }
+    ];
+    const SATPAM_ASSEMBLED_BASE64 = "__SATPAM_ASSEMBLED_BASE64__";
+    const SATPAM_EXPLODED_BASE64 = "__SATPAM_EXPLODED_BASE64__";
+
+    // --- DOM Elements ---
+    const e = {
+      appModeSelect: document.getElementById('appModeSelect'),
+      combinedCheckboxContainer: document.getElementById('combinedCheckboxContainer'),
+      generateCombinedCheckbox: document.getElementById('generateCombinedCheckbox'),
+      standardRefs: document.getElementById('standardRefs'),
+      animatorRef: document.getElementById('animatorRef'),
+      animatorResultsWrapper: document.getElementById('animatorResultsWrapper'),
+      animatorResultsGrid: document.getElementById('animatorResultsGrid'),
+      
+      providerSelect: document.getElementById('providerSelect'),
+      geminiSettings: document.getElementById('geminiSettings'),
+      hfSettings: document.getElementById('hfSettings'),
+      apiKeyInput: document.getElementById('apiKeyInput'),
+      saveKeyBtn: document.getElementById('saveKeyBtn'),
+      resetKeyBtn: document.getElementById('resetKeyBtn'),
+      hfKeyInput: document.getElementById('hfKeyInput'),
+      hfSaveKeyBtn: document.getElementById('hfSaveKeyBtn'),
+      hfResetKeyBtn: document.getElementById('hfResetKeyBtn'),
+      keyStatusBadge: document.getElementById('keyStatusBadge'),
+      modelSelect: document.getElementById('modelSelect'),
+      geminiTempInput: document.getElementById('geminiTempInput'),
+      geminiTempValue: document.getElementById('geminiTempValue'),
+      geminiPresetSelect: document.getElementById('geminiPresetSelect'),
+      hfModelSelect: document.getElementById('hfModelSelect'),
+      hfModelSupportInfo: document.getElementById('hfModelSupportInfo'),
+      hfPresetSelect: document.getElementById('hfPresetSelect'),
+      hfStrengthInput: document.getElementById('hfStrengthInput'),
+      hfStrengthValue: document.getElementById('hfStrengthValue'),
+      hfGuidanceInput: document.getElementById('hfGuidanceInput'),
+      hfGuidanceValue: document.getElementById('hfGuidanceValue'),
+      hfCustomModelWrap: document.getElementById('hfCustomModelWrap'),
+      hfCustomModelInput: document.getElementById('hfCustomModelInput'),
+      hfAddModelInput: document.getElementById('hfAddModelInput'),
+      hfAddModelBtn: document.getElementById('hfAddModelBtn'),
+      
+      refCardA: document.getElementById('refCardA'),
+      refCardB: document.getElementById('refCardB'),
+      
+      templateSelect: document.getElementById('templateSelect'),
+      outfitName: document.getElementById('outfitName'),
+      outfitDesc: document.getElementById('outfitDesc'),
+      generateBtn: document.getElementById('generateBtn'),
+      
+      quotaInfo: document.getElementById('quotaInfo'),
+      
+      canvasArea: document.getElementById('canvasArea'),
+      stateEmpty: document.getElementById('stateEmpty'),
+      stateLoading: document.getElementById('stateLoading'),
+      stateError: document.getElementById('stateError'),
+      errorMsg: document.getElementById('errorMsg'),
+      errorRetryBtn: document.getElementById('errorRetryBtn'),
+      resultImageWrapper: document.getElementById('resultImageWrapper'),
+      resultImage: document.getElementById('resultImage'),
+      
+      resultActions: document.getElementById('resultActions'),
+      resetFormBtn: document.getElementById('resetFormBtn'),
+      regenerateBtn: document.getElementById('regenerateBtn'),
+      downloadBtn: document.getElementById('downloadBtn'),
+
+      themeToggleBtn: document.getElementById('themeToggleBtn'),
+      themeIcon: document.getElementById('themeIcon'),
+    };
+
+    // --- Initialization ---
+    function init() {
+      // Theme Setup
+      const isDark = localStorage.getItem('dhot_theme') === 'dark' || 
+                    (!('dhot_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (isDark) document.documentElement.classList.add('dark');
+      updateThemeIcon();
+      
+      e.themeToggleBtn.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        localStorage.setItem('dhot_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        updateThemeIcon();
+      });
+
+      // Restore selected models if any
+      const savedGeminiModel = localStorage.getItem("dhot_model");
+      if (savedGeminiModel && Array.from(e.modelSelect.options).some(o => o.value === savedGeminiModel)) {
+        e.modelSelect.value = savedGeminiModel;
+      }
+      e.modelSelect.addEventListener('change', () => localStorage.setItem("dhot_model", e.modelSelect.value));
+
+      const savedHfCustomModel = localStorage.getItem("dhot_hf_custom_model") || "";
+      e.hfCustomModelInput.value = savedHfCustomModel;
+      restoreSavedHfModels();
+
+      const savedHfModel = localStorage.getItem("dhot_hf_model");
+      if (savedHfModel && Array.from(e.hfModelSelect.options).some(o => o.value === savedHfModel)) {
+        e.hfModelSelect.value = savedHfModel;
+      }
+      updateHfModelUI();
+      updateHfModelSupportInfo();
+
+      // Restore generation params
+      if (!Number.isNaN(geminiTemperature)) {
+        e.geminiTempInput.value = geminiTemperature.toString();
+        e.geminiTempValue.textContent = geminiTemperature.toFixed(2);
+      }
+      if (!Number.isNaN(hfStrength)) {
+        e.hfStrengthInput.value = hfStrength.toString();
+        e.hfStrengthValue.textContent = hfStrength.toFixed(2);
+      }
+      if (!Number.isNaN(hfGuidance)) {
+        e.hfGuidanceInput.value = hfGuidance.toFixed(1);
+        e.hfGuidanceValue.textContent = hfGuidance.toFixed(1);
+      }
+
+      e.geminiPresetSelect.value = geminiPreset;
+      e.hfPresetSelect.value = hfPreset;
+      applyGeminiPreset(geminiPreset);
+      applyHfPreset(hfPreset);
+
+      // Populate Templates
+      OUTFIT_TEMPLATES.forEach((tpl, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `${idx + 1}. ${tpl.name}`;
+        e.templateSelect.appendChild(opt);
+      });
+
+      // Template selection logic
+      e.templateSelect.addEventListener('change', (ev) => {
+        const idx = ev.target.value;
+        if (idx !== "") {
+          e.outfitName.value = OUTFIT_TEMPLATES[idx].name;
+          e.outfitDesc.value = OUTFIT_TEMPLATES[idx].desc;
+        }
+      });
+
+      // Mode Toggle
+      e.appModeSelect.addEventListener('change', () => {
+        const isAnimator = e.appModeSelect.value === 'animator';
+        e.standardRefs.classList.toggle('hidden', isAnimator);
+        e.animatorRef.classList.toggle('hidden', !isAnimator);
+        e.combinedCheckboxContainer.classList.toggle('hidden', !isAnimator);
+        
+        // Update the visual image shown in the UI
+        if (isAnimator) {
+          e.animatorRef.querySelector('img').src = `data:image/png;base64,${SATPAM_EXPLODED_BASE64}`;
+        }
+      });
+
+      updateGeminiKeyUI();
+      updateHfKeyUI();
+      setProvider(apiProvider);
+      selectRef(selectedRef);
+      updateQuotaUI();
+
+      // Event Listeners
+      e.providerSelect.addEventListener('change', () => setProvider(e.providerSelect.value));
+      e.saveKeyBtn.addEventListener('click', handleSaveGeminiKey);
+      e.resetKeyBtn.addEventListener('click', handleResetGeminiKey);
+      e.hfSaveKeyBtn.addEventListener('click', handleSaveHfKey);
+      e.hfResetKeyBtn.addEventListener('click', handleResetHfKey);
+      e.hfModelSelect.addEventListener('change', () => {
+        localStorage.setItem("dhot_hf_model", e.hfModelSelect.value);
+        updateHfModelUI();
+        updateHfModelSupportInfo();
+      });
+      e.hfCustomModelInput.addEventListener('input', () => {
+        localStorage.setItem("dhot_hf_custom_model", e.hfCustomModelInput.value.trim());
+      });
+      e.hfAddModelBtn.addEventListener('click', () => {
+        const modelId = e.hfAddModelInput.value.trim();
+        if (!modelId) return;
+        addHfModel(modelId);
+        e.hfAddModelInput.value = '';
+        updateHfModelSupportInfo();
+      });
+      e.geminiPresetSelect.addEventListener('change', () => {
+        applyGeminiPreset(e.geminiPresetSelect.value);
+      });
+      e.hfPresetSelect.addEventListener('change', () => {
+        applyHfPreset(e.hfPresetSelect.value);
+      });
+      e.geminiTempInput.addEventListener('input', () => {
+        geminiTemperature = parseFloat(e.geminiTempInput.value);
+        e.geminiTempValue.textContent = geminiTemperature.toFixed(2);
+        localStorage.setItem("dhot_gemini_temperature", geminiTemperature.toString());
+        geminiPreset = 'custom';
+        e.geminiPresetSelect.value = 'custom';
+        localStorage.setItem("dhot_gemini_preset", geminiPreset);
+      });
+      e.hfStrengthInput.addEventListener('input', () => {
+        hfStrength = parseFloat(e.hfStrengthInput.value);
+        e.hfStrengthValue.textContent = hfStrength.toFixed(2);
+        localStorage.setItem("dhot_hf_strength", hfStrength.toString());
+        hfPreset = 'custom';
+        e.hfPresetSelect.value = 'custom';
+        localStorage.setItem("dhot_hf_preset", hfPreset);
+      });
+      e.hfGuidanceInput.addEventListener('input', () => {
+        hfGuidance = parseFloat(e.hfGuidanceInput.value);
+        e.hfGuidanceValue.textContent = hfGuidance.toFixed(1);
+        localStorage.setItem("dhot_hf_guidance", hfGuidance.toString());
+        hfPreset = 'custom';
+        e.hfPresetSelect.value = 'custom';
+        localStorage.setItem("dhot_hf_preset", hfPreset);
+      });
+      
+      e.refCardA.addEventListener('click', () => selectRef('REF_A'));
+      e.refCardB.addEventListener('click', () => selectRef('REF_B'));
+      
+      e.generateBtn.addEventListener('click', generate);
+      e.errorRetryBtn.addEventListener('click', () => { showState('empty'); generate(); });
+      
+      e.resetFormBtn.addEventListener('click', resetForm);
+      e.regenerateBtn.addEventListener('click', generate);
+      e.downloadBtn.addEventListener('click', downloadImage);
+    }
+
+    function updateThemeIcon() {
+      e.themeIcon.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    }
+
+
+    function selectRef(refId) {
+      selectedRef = refId;
+      localStorage.setItem("dhot_last_ref", refId);
+      
+      const setCardSelected = (card, isSelected) => {
+        card.classList.toggle('bg-blue-50', isSelected);
+        card.classList.toggle('dark:bg-blue-900/30', isSelected);
+        card.classList.toggle('border-blue-500', isSelected);
+        card.classList.toggle('dark:border-blue-500', isSelected);
+        card.classList.toggle('bg-gray-50', !isSelected);
+        card.classList.toggle('dark:bg-gray-700', !isSelected);
+        card.classList.toggle('border-gray-200', !isSelected);
+        card.classList.toggle('dark:border-gray-600', !isSelected);
+      };
+
+      setCardSelected(e.refCardA, refId === 'REF_A');
+      setCardSelected(e.refCardB, refId === 'REF_B');
+    }
+
+    function showState(stateName) {
+      e.stateEmpty.classList.add('hidden');
+      e.stateLoading.classList.add('hidden');
+      e.stateError.classList.add('hidden');
+      e.resultImageWrapper.classList.add('hidden');
+      e.resultActions.classList.add('hidden');
+      e.animatorResultsWrapper.classList.add('hidden');
+      
+      if (stateName === 'empty') e.stateEmpty.classList.remove('hidden');
+      else if (stateName === 'loading') e.stateLoading.classList.remove('hidden');
+      else if (stateName === 'error') e.stateError.classList.remove('hidden');
+      else if (stateName === 'result') {
+        e.resultImageWrapper.classList.remove('hidden');
+        e.resultActions.classList.remove('hidden');
+      }
+    }
+
+    // --- Quota Tracking ---
+    function getTodayQuota() {
+      const today = new Date().toISOString().split('T')[0];
+      let quota = safeJsonParse(localStorage.getItem('dhot_quota') || '{}', {});
+      if (quota.date !== today) quota = { date: today, count: 0 };
+      return quota;
+    }
+
+    function updateQuotaUI() {
+      const quota = getTodayQuota();
+      e.quotaInfo.textContent = `Hari ini: ${quota.count}/${MAX_DAILY_QUOTA}× generate`;
+      
+      if (quota.count >= MAX_DAILY_QUOTA) {
+        e.quotaInfo.classList.remove('text-gray-600', 'dark:text-gray-400', 'text-orange-600', 'dark:text-orange-400');
+        e.quotaInfo.classList.add('text-red-600', 'dark:text-red-400', 'font-bold');
+      } else if (quota.count >= MAX_DAILY_QUOTA - 10) {
+        e.quotaInfo.classList.add('text-orange-600', 'dark:text-orange-400');
+      }
+    }
+
+    function incrementQuota() {
+      let quota = getTodayQuota();
+      quota.count++;
+      localStorage.setItem('dhot_quota', JSON.stringify(quota));
+      updateQuotaUI();
+    }
+
+    // --- UI Logic ---
+    function setProvider(provider) {
+      apiProvider = provider;
+      localStorage.setItem("dhot_api_provider", provider);
+      e.providerSelect.value = provider;
+      e.geminiSettings.classList.toggle('hidden', provider !== 'gemini');
+      e.hfSettings.classList.toggle('hidden', provider !== 'hf');
+      updateProviderBadge();
+    }
+
+    function updateGeminiKeyUI() {
+      if (geminiApiKey) {
+        e.apiKeyInput.value = "••••••••••••••••••••••••";
+        e.apiKeyInput.disabled = true;
+        e.saveKeyBtn.classList.add('hidden');
+        e.resetKeyBtn.classList.remove('hidden');
+      } else {
+        e.apiKeyInput.value = "";
+        e.apiKeyInput.disabled = false;
+        e.saveKeyBtn.classList.remove('hidden');
+        e.resetKeyBtn.classList.add('hidden');
+      }
+    }
+
+    function updateHfKeyUI() {
+      if (hfApiKey) {
+        e.hfKeyInput.value = "••••••••••••••••••••••••";
+        e.hfKeyInput.disabled = true;
+        e.hfSaveKeyBtn.classList.add('hidden');
+        e.hfResetKeyBtn.classList.remove('hidden');
+      } else {
+        e.hfKeyInput.value = "";
+        e.hfKeyInput.disabled = false;
+        e.hfSaveKeyBtn.classList.remove('hidden');
+        e.hfResetKeyBtn.classList.add('hidden');
+      }
+    }
+
+    function updateProviderBadge() {
+      const isGemini = apiProvider === 'gemini';
+      const hasKey = isGemini ? !!geminiApiKey : !!hfApiKey;
+      const providerLabel = isGemini ? 'Gemini (AI Studio)' : 'Hugging Face';
+
+      if (hasKey) {
+        e.keyStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500"></span> ${providerLabel} siap`;
+        e.keyStatusBadge.className = 'flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full font-medium';
+        e.generateBtn.disabled = false;
+      } else {
+        e.keyStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Key ${providerLabel} belum diisi`;
+        e.keyStatusBadge.className = 'flex items-center gap-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-3 py-1 rounded-full font-medium';
+        e.generateBtn.disabled = true;
+      }
+    }
+
+    function updateHfModelUI() {
+      const isCustom = e.hfModelSelect.value === '__custom__';
+      e.hfCustomModelWrap.classList.toggle('hidden', !isCustom);
+    }
+
+    function getHfModelId() {
+      const selected = e.hfModelSelect.value;
+      return selected === '__custom__' ? e.hfCustomModelInput.value.trim() : selected;
+    }
+
+    function applyGeminiPreset(preset) {
+      geminiPreset = preset;
+      localStorage.setItem("dhot_gemini_preset", preset);
+      if (preset === 'custom') return;
+      let value = 0.7;
+      if (preset === 'consistent') value = 0.35;
+      if (preset === 'creative') value = 1.1;
+      geminiTemperature = value;
+      e.geminiTempInput.value = value.toString();
+      e.geminiTempValue.textContent = value.toFixed(2);
+      localStorage.setItem("dhot_gemini_temperature", value.toString());
+    }
+
+    function applyHfPreset(preset) {
+      hfPreset = preset;
+      localStorage.setItem("dhot_hf_preset", preset);
+      if (preset === 'custom') return;
+      let strength = 0.35;
+      let guidance = 7.0;
+      if (preset === 'consistent') {
+        strength = 0.25;
+        guidance = 6.0;
+      }
+      if (preset === 'creative') {
+        strength = 0.55;
+        guidance = 8.5;
+      }
+      hfStrength = strength;
+      hfGuidance = guidance;
+      e.hfStrengthInput.value = strength.toString();
+      e.hfStrengthValue.textContent = strength.toFixed(2);
+      e.hfGuidanceInput.value = guidance.toFixed(1);
+      e.hfGuidanceValue.textContent = guidance.toFixed(1);
+      localStorage.setItem("dhot_hf_strength", strength.toString());
+      localStorage.setItem("dhot_hf_guidance", guidance.toString());
+    }
+
+    function restoreSavedHfModels() {
+      const saved = safeJsonParse(localStorage.getItem("dhot_hf_models") || "[]", []);
+      if (!Array.isArray(saved)) return;
+      saved.forEach(modelId => addHfModel(modelId, { skipSave: true }));
+    }
+
+    function addHfModel(modelId, opts = {}) {
+      const trimmed = modelId.trim();
+      if (!trimmed) return;
+      const exists = Array.from(e.hfModelSelect.options).some(o => o.value === trimmed);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = trimmed;
+        opt.textContent = trimmed;
+        const customOpt = Array.from(e.hfModelSelect.options).find(o => o.value === '__custom__');
+        if (customOpt) {
+          e.hfModelSelect.insertBefore(opt, customOpt);
+        } else {
+          e.hfModelSelect.appendChild(opt);
+        }
+      }
+      if (!opts.skipSave) {
+        const saved = safeJsonParse(localStorage.getItem("dhot_hf_models") || "[]", []);
+        if (Array.isArray(saved) && !saved.includes(trimmed)) {
+          saved.push(trimmed);
+          localStorage.setItem("dhot_hf_models", JSON.stringify(saved));
+        }
+      }
+      e.hfModelSelect.value = trimmed;
+      localStorage.setItem("dhot_hf_model", trimmed);
+      updateHfModelUI();
+    }
+
+    function updateHfModelSupportInfo() {
+      const modelId = getHfModelId();
+      const supportMap = {
+        "stabilityai/sdxl-turbo": "ya",
+        "stabilityai/stable-diffusion-xl-base-1.0": "ya",
+        "runwayml/stable-diffusion-v1-5": "ya"
+      };
+      const support = supportMap[modelId] || "tidak diketahui";
+      e.hfModelSupportInfo.textContent = `Support image-to-image: ${support}.`;
+    }
+
+    // --- Authentication ---
+    async function handleSaveGeminiKey() {
+      const key = e.apiKeyInput.value.trim();
+      if (!key) { alert("Masukkan API Key dulu!"); return; }
+      
+      e.keyStatusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-yellow-500"></span> Memverifikasi Gemini...';
+      e.keyStatusBadge.className = 'flex items-center gap-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-3 py-1 rounded-full font-medium';
+      
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models`, {
+          headers: { 'x-goog-api-key': key }
+        });
+
+        if (res.ok) {
+          geminiApiKey = key;
+          localStorage.setItem("dhot_api_key", key);
+          updateGeminiKeyUI();
+          updateProviderBadge();
+        } else {
+          const err = await res.json();
+          let msg = "Key tidak valid.";
+          if (res.status === 400) msg = "Key tidak valid. Cek copy-paste.";
+          if (res.status === 403) msg = "Key tidak punya akses ke Gemini API.";
+          alert(msg);
+          updateGeminiKeyUI();
+          updateProviderBadge();
+        }
+      } catch (err) {
+        alert("Gagal koneksi ke server Google. Periksa internet.");
+        updateGeminiKeyUI();
+        updateProviderBadge();
+      }
+    }
+
+    function handleResetGeminiKey() {
+      if(confirm("Yakin ingin menghapus API key Gemini dari browser ini?")) {
+        geminiApiKey = "";
+        localStorage.removeItem("dhot_api_key");
+        updateGeminiKeyUI();
+        updateProviderBadge();
+      }
+    }
+
+    function handleSaveHfKey() {
+      const key = e.hfKeyInput.value.trim();
+      if (!key) { alert("Masukkan Hugging Face token dulu!"); return; }
+
+      hfApiKey = key;
+      localStorage.setItem("dhot_hf_key", key);
+      updateHfKeyUI();
+      updateProviderBadge();
+    }
+
+    function handleResetHfKey() {
+      if(confirm("Yakin ingin menghapus token Hugging Face dari browser ini?")) {
+        hfApiKey = "";
+        localStorage.removeItem("dhot_hf_key");
+        updateHfKeyUI();
+        updateProviderBadge();
+      }
+    }
+
+    // --- Prompt Builders ---
+    function buildImagePrompt(name, desc, isAnimator) {
+      if (isAnimator) {
+        return `TASK:
+You are an expert 2D game asset illustrator. 
+The reference image shows 6 DISCONNECTED, FLOATING garment pieces (torso, sleeves, pants, etc) spread out on a canvas.
+Your ONLY job is to redraw these 6 floating pieces with a new outfit design.
+
+WARNING - CRITICAL RULES:
+- DO NOT CONNECT THE PIECES! If you connect the sleeves to the torso, the result is RUINED.
+- You MUST leave a large gap of empty space between the arms and the torso, exactly as shown in the reference.
+- The left sleeve and right sleeve MUST float in the air independently. Do NOT attach them to the shoulder.
+- Do NOT assemble a human body. Treat this as a sprite sheet of 6 separate clothing items.
+- DO NOT ADD A HEAD OR FACE.
+- SKIN LOCK: You MUST preserve the exact original skin color and shading for any exposed skin (like hands, wrists, and neck). Do not turn the skin into cloth or erase it.
+- The silhouette shapes, sizes, and layout of the 6 floating pieces MUST align perfectly with the reference so they can be cut out.
+
+THE ONLY THING TO CHANGE:
+Redesign the clothing/outfit on the 6 floating pieces to match:
+Outfit Name: ${name}
+Outfit Description: ${desc}
+
+OUTPUT REQUIREMENTS:
+- PLAIN WHITE BACKGROUND. Do not draw a transparent or dark background.
+- Clean, finished illustration.
+- Framing and layout of the separated parts must match the reference PERFECTLY.
+- No background scenery, no text, no watermarks.
+- High detail on the outfit as described.`;
+      } else {
+        return `TASK:
+Generate a single character illustration of the character shown in the reference image above.
+Your ONLY job is to redress this character in a new outfit.
+
+CHARACTER LOCK — DO NOT CHANGE ANY OF THESE:
+- Face: exact same face, hairstyle, hair color, facial features, skin tone
+- Body: exact same body proportions, height, build, and posture
+- Pose: same 3/4 view standing pose as the reference
+- Art style: same semi-realistic anime-influenced illustration style
+- Line art and shading style must match the reference exactly
+
+THE ONLY THING TO CHANGE:
+Replace ONLY the clothing/outfit with the following:
+
+Outfit Name: ${name}
+Outfit Description: ${desc}
+
+OUTPUT REQUIREMENTS:
+- Full body shot, same framing as reference image
+- Transparent or plain light grey background
+- Clean, finished illustration — not a sketch
+- Front-facing or 3/4 view matching reference
+- No additional characters, no background scenery, no text or watermarks
+- High detail on the outfit as described`;
+      }
+    }
+
+    window.downloadUrl = function(url, filename) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    };
+
+    function getImageData(imgSrc) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => {
+          resolve({ img: img, w: img.naturalWidth, h: img.naturalHeight });
+        };
+        img.src = imgSrc;
+      });
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Gagal membaca gambar hasil.'));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function safeJsonParse(value, fallback) {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed === null || parsed === undefined ? fallback : parsed;
+      } catch (err) {
+        return fallback;
+      }
+    }
+
+    async function processAnimatorMasks(base64Image) {
+      e.animatorResultsWrapper.classList.remove('hidden');
+      e.animatorResultsGrid.innerHTML = '<div class="col-span-3 text-center text-blue-500 animate-pulse text-sm">✂️ Memotong aset secara otomatis...</div>';
+      
+      try {
+        const fullGen = await getImageData(`data:image/png;base64,${base64Image}`);
+        const fullRef = await getImageData(`data:image/png;base64,${SATPAM_EXPLODED_BASE64}`);
+        
+        // Scale generated image to EXACTLY match reference canvas
+        const scaledCvs = document.createElement('canvas');
+        scaledCvs.width = fullRef.w;
+        scaledCvs.height = fullRef.h;
+        const scaledCtx = scaledCvs.getContext('2d');
+        scaledCtx.drawImage(fullGen.img, 0, 0, fullGen.w, fullGen.h, 0, 0, fullRef.w, fullRef.h);
+        
+        e.animatorResultsGrid.innerHTML = '';
+
+        for (let tpl of SKIN_TEMPLATES) {
+          const part = await getImageData(tpl.src);
+          const offset = { x: tpl.x, y: tpl.y };
+          
+          const cutCvs = document.createElement('canvas');
+          cutCvs.width = part.w;
+          cutCvs.height = part.h;
+          const ctx = cutCvs.getContext('2d');
+          
+          // Draw scaled generated image shifted by -offset
+          ctx.drawImage(scaledCvs, -offset.x, -offset.y);
+          
+          // Mask using template's alpha channel
+          ctx.globalCompositeOperation = 'destination-in';
+          ctx.drawImage(part.img, 0, 0);
+          
+          const cutUrl = cutCvs.toDataURL('image/png');
+          
+          const card = document.createElement('div');
+          card.className = "flex flex-col items-center bg-white dark:bg-gray-700 p-2 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm";
+          card.innerHTML = `
+            <span class="text-[10px] font-bold mb-2 text-gray-700 dark:text-gray-300 uppercase">${tpl.name}</span>
+            <div class="w-full h-20 flex items-center justify-center bg-checker rounded border border-gray-300 dark:border-gray-600 mb-2 overflow-hidden">
+               <img src="${cutUrl}" class="max-h-full object-contain drop-shadow-md">
+            </div>
+            <button class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded w-full transition" onclick="downloadUrl('${cutUrl}', '${tpl.name}.png')">UNDUH</button>
+          `;
+          e.animatorResultsGrid.appendChild(card);
+        }
+        
+        if (e.generateCombinedCheckbox.checked) {
+           currentResultDataUrl = scaledCvs.toDataURL('image/png');
+           e.resultImage.src = currentResultDataUrl;
+           e.resultImageWrapper.classList.remove('hidden');
+           e.resultActions.classList.remove('hidden');
+        } else {
+           e.resultImageWrapper.classList.add('hidden');
+           e.resultActions.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error("Auto-cut error:", err);
+        e.animatorResultsGrid.innerHTML = '<div class="col-span-3 text-center text-red-500 text-xs">Gagal melakukan pemotongan otomatis.</div>';
+      }
+    }
+
+    // --- Generation ---
+    async function generate() {
+      const name = e.outfitName.value.trim();
+      const desc = e.outfitDesc.value.trim();
+      
+      if (!name) { alert("Isi nama baju dulu!"); e.outfitName.focus(); return; }
+      if (!desc) { alert("Isi deskripsi baju dulu!"); e.outfitDesc.focus(); return; }
+
+      const hasKey = apiProvider === 'gemini' ? !!geminiApiKey : !!hfApiKey;
+      if (!hasKey) {
+        alert("Key provider yang dipilih wajib diisi dulu.");
+        if (apiProvider === 'gemini') {
+          e.apiKeyInput.focus();
+          e.apiKeyInput.classList.add('ring-2', 'ring-red-500');
+          setTimeout(() => e.apiKeyInput.classList.remove('ring-2', 'ring-red-500'), 1000);
+        } else {
+          e.hfKeyInput.focus();
+          e.hfKeyInput.classList.add('ring-2', 'ring-red-500');
+          setTimeout(() => e.hfKeyInput.classList.remove('ring-2', 'ring-red-500'), 1000);
+        }
+        return;
+      }
+
+      const currentQuotaObj = getTodayQuota();
+      if (currentQuotaObj.count >= MAX_DAILY_QUOTA) {
+        alert(`Batas aman harian tercapai! Kamu sudah melakukan ${MAX_DAILY_QUOTA}x generate hari ini.`);
+        return;
+      }
+
+      isGenerating = true;
+      e.generateBtn.disabled = true;
+      showState('loading');
+
+      try {
+        if (apiProvider === 'gemini') {
+          await generateWithGemini(name, desc);
+        } else {
+          await generateWithHuggingFace(name, desc);
+        }
+      } catch (err) {
+        console.error(err);
+        e.errorMsg.textContent = err.message || 'Terjadi kesalahan saat generate.';
+        showState('error');
+      } finally {
+        isGenerating = false;
+        e.generateBtn.disabled = false;
+      }
+    }
+
+    async function generateWithGemini(name, desc) {
+      const isAnimator = e.appModeSelect.value === 'animator';
+      const modelId = e.modelSelect.value;
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
+      const finalPrompt = buildImagePrompt(name, desc, isAnimator);
+      const targetBase64 = DHOT_REFERENCES[selectedRef]?.base64;
+
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: finalPrompt }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: Number.isFinite(geminiTemperature) ? geminiTemperature : 0.7,
+          topK: 32,
+          topP: 1,
+          maxOutputTokens: 4096,
+          responseModalities: ["IMAGE"]
+        }
+      };
+
+      if (isAnimator) {
+        payload.contents[0].parts.push({
+          inline_data: { mime_type: "image/png", data: SATPAM_ASSEMBLED_BASE64 }
+        });
+        payload.contents[0].parts.push({
+          inline_data: { mime_type: "image/png", data: SATPAM_EXPLODED_BASE64 }
+        });
+      } else {
+        payload.contents[0].parts.push({
+          inline_data: { mime_type: "image/jpeg", data: targetBase64 }
+        });
+      }
+
+      const response = await fetch(`${apiUrl}?key=${geminiApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!result.candidates || result.candidates.length === 0) {
+        if (result.error && result.error.code === 429) throw new Error('429');
+        throw new Error(result.error ? result.error.message : 'API tidak mengembalikan gambar.');
+      }
+
+      let base64Image = null;
+      const parts = result.candidates[0].content.parts;
+      for (const part of parts) {
+        if (part.inline_data && part.inline_data.data) {
+          base64Image = part.inline_data.data;
+          break;
+        } else if (part.inlineData && part.inlineData.data) {
+          base64Image = part.inlineData.data;
+          break;
+        }
+      }
+      
+      if (base64Image) {
+        incrementQuota();
+        if (isAnimator) {
+          showState('result');
+          e.resultImageWrapper.classList.add('hidden'); // hidden until masking finishes
+          e.resultActions.classList.add('hidden');
+          await processAnimatorMasks(base64Image);
+        } else {
+          currentResultDataUrl = `data:image/png;base64,${base64Image}`;
+          e.resultImage.src = currentResultDataUrl;
+          showState('result');
+        }
+      } else {
+        const textPart = parts.find(p => p.text);
+        throw new Error(textPart ? textPart.text : "AI menolak membuat gambar.");
+      }
+    }
+
+    async function generateWithHuggingFace(name, desc) {
+      const isAnimator = e.appModeSelect.value === 'animator';
+      const modelId = getHfModelId();
+      if (!modelId) {
+        throw new Error('Model Hugging Face belum diisi.');
+      }
+
+      const apiUrl = `https://api-inference.huggingface.co/models/${modelId}`;
+      const finalPrompt = buildImagePrompt(name, desc, isAnimator);
+      const refBase64 = isAnimator ? SATPAM_EXPLODED_BASE64 : DHOT_REFERENCES[selectedRef]?.base64;
+      const refMime = isAnimator ? 'image/png' : 'image/jpeg';
+
+      const payload = {
+        inputs: {
+          image: refBase64,
+          prompt: finalPrompt
+        },
+        parameters: {
+          strength: Number.isFinite(hfStrength) ? hfStrength : 0.35,
+          guidance_scale: Number.isFinite(hfGuidance) ? hfGuidance : 7.0
+        }
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${hfApiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'image/png'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok || contentType.includes('application/json')) {
+        let errPayload = {};
+        try { errPayload = await response.json(); } catch (err) { errPayload = {}; }
+        if (response.status === 503 && errPayload.estimated_time) {
+          const waitSec = Math.ceil(errPayload.estimated_time);
+          throw new Error(`Model sedang loading di Hugging Face. Coba lagi dalam ${waitSec} detik.`);
+        }
+        const errMsg = errPayload.error || errPayload.message || `HF error ${response.status}`;
+        throw new Error(errMsg);
+      }
+
+      const blob = await response.blob();
+      const dataUrl = await blobToDataUrl(blob);
+      incrementQuota();
+
+      if (isAnimator) {
+        showState('result');
+        e.resultImageWrapper.classList.add('hidden');
+        e.resultActions.classList.add('hidden');
+        const base64Image = dataUrl.split(',')[1] || '';
+        await processAnimatorMasks(base64Image);
+      } else {
+        currentResultDataUrl = dataUrl;
+        e.resultImage.src = currentResultDataUrl;
+        showState('result');
+      }
+    }
+
+    function resetForm() {
+      e.outfitName.value = '';
+      e.outfitDesc.value = '';
+      e.templateSelect.value = '';
+      showState('empty');
+      currentResultDataUrl = null;
+      e.resultImage.src = '';
+    }
+
+    function downloadImage() {
+      if (!currentResultDataUrl) return;
+      
+      const nameStr = (e.outfitName.value || "baju").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const dateStr = new Date().toISOString().replace(/[:T-]/g, '').slice(0, 14);
+      const filename = `dhot-${nameStr}-${dateStr}.png`;
+
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = currentResultDataUrl;
+      link.click();
+    }
+
+    // Startup
+    init();
+  </script>
+</body>
+</html>

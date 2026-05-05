@@ -1,0 +1,17 @@
+# Internal Project Documentation
+PRD.md
+
+# Old / Deprecated Assets
+template_skin/
+
+# System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and debug files
+*.log
+
+# Node.js
+node_modules/
+package-lock.json
