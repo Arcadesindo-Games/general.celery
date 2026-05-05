@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { modelId, hfToken, payload, provider = 'fal-ai' } = req.body;
+  const { modelId, hfToken, payload, provider = 'replicate' } = req.body;
 
   if (!modelId || !hfToken) {
     return res.status(400).json({ error: 'modelId and hfToken are required' });
