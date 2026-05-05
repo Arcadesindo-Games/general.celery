@@ -1159,12 +1159,13 @@ OUTPUT REQUIREMENTS:
         throw new Error('Model Hugging Face belum diisi.');
       }
 
-      const apiUrl = `https://api-inference.huggingface.co/models/${modelId}`;
       const finalPrompt = buildImagePrompt(name, desc, isAnimator);
-      const refBase64 = isAnimator ? SATPAM_EXPLODED_BASE64 : DHOT_REFERENCES[selectedRef]?.base64;
-      const refMime = isAnimator ? 'image/png' : 'image/jpeg';
+      const refBase64 = isAnimator ? SATPAM_EXPLODED_BASE64 : (DHOT_REFERENCES[selectedRef] || {}).base64;
+      if (!refBase64) {
+        throw new Error('Gambar referensi tidak ditemukan. Pilih patokan terlebih dahulu.');
+      }
 
-      const payload = {
+      const hfPayload = {
         inputs: {
           image: refBase64,
           prompt: finalPrompt
@@ -1175,14 +1176,15 @@ OUTPUT REQUIREMENTS:
         }
       };
 
-      const response = await fetch(apiUrl, {
+      // Route through Vercel serverless proxy to bypass CORS
+      const response = await fetch('/api/hf-proxy', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${hfApiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'image/png'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modelId,
+          hfToken: hfApiKey,
+          payload: hfPayload
+        })
       });
 
       const contentType = response.headers.get('content-type') || '';
